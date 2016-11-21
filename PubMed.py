@@ -1,6 +1,11 @@
 from Bio import Entrez
 import datetime
 import os
+import time
+import sys
+import pickle
+import pycountry
+from googleplaces import GooglePlaces, GooglePlacesError
 Entrez.email = "fillangrady@gmail.com"
 pickle_file_name = 'PickledLocations.txt'
 output_file_name = 'Output.csv'
@@ -8,11 +13,8 @@ key1 = 'AIzaSyA5Occ-Qhk8XEWV321gnGzAy3dWLHCawr0'
 key2 = 'AIzaSyC69qprzE_k_WggYOdHQSddnfJgcASIrS8'
 key3 = 'AIzaSyDQzC6_3HLdCrv55J9CDZYR0t7OeFhTqK4'
 key4 = 'AIzaSyBoiY3tbFEkqYA2Rbr8p4zteBIC_IyYKdk'
-import time
-import sys
-import pickle
-import pycountry
-from googleplaces import GooglePlaces, GooglePlacesError
+key5 = 'AIzaSyBv56ywWsWQDpeUP-hMvMW_2FgG9UY_XAg'
+key6 = 'AIzaSyBaiImRXaoYPIzguJxILsXOvhwz5aia-x0'
 
 
 def month_to_int(month):
@@ -47,9 +49,10 @@ class GooglePlaces_MultipleKeys:
             self.index += 1
             if self.index > len(self.key_list) - 1:
                 raise GooglePlacesError("Out of keys")
-            print "Switching Keys"
+            print "Switching Keys to key %s" % (self.index + 1)
             self.google_place = GooglePlaces(self.key_list[self.index])
             return self.text_search(name)
+
 
 class Rememberer:
     def __init__(self, f):
@@ -93,6 +96,7 @@ class Coordinate:
                         print self.wo_department
                         print self.institution_country
                         print "________________________"
+        rememberer.dict[self.institution_country] = self.coords
 
     def remove_emails(self):
         self.full_name = self.full_name.lower()
@@ -112,7 +116,10 @@ class Coordinate:
         return institution, country
 
     def create_city_country(self):
-        city = self.full_name.split(",")[-2]
+        try:
+            city = self.full_name.split(",")[-2]
+        except IndexError:
+            city = ""
         country = Coordinate.get_country(self.full_name)
         return city, country
 
@@ -150,7 +157,7 @@ class Coordinate:
         for word in reversed(words):
             for country in countries:
                 if country in word:
-                    return word.strip().strip(".")
+                    return country
         return ""
 
 
@@ -158,6 +165,7 @@ class Article:
     def __init__(self, record):
         self.title = Article.remove_nonascii(record['MedlineCitation']['Article']['ArticleTitle'])
         self.title = self.title.replace(",", "")
+        self.pmid = record["MedlineCitation"]["PMID"]
         self.locations = []
         try:
             for location in record['MedlineCitation']['Article']['AuthorList']:
@@ -169,14 +177,12 @@ class Article:
                 self.locations.append(c)
         except KeyError as ke:
             pass
-        try:
-            date = record['MedlineCitation']['Article']['ArticleDate'][0]
-            self.date = datetime.date(year=int(date['Year']), month=month_to_int(date['Month']), day=int(date['Day']))
-        except IndexError as ie:
-            self.date = None
+        date = record['MedlineCitation']['Article']['ArticleDate'][0]
+        self.date = datetime.date(year=int(date['Year']), month=month_to_int(date['Month']), day=int(date['Day']))
+
 
     def __str__(self):
-        return "%s,%s,%s" % (self.title, str(self.date), ",".join([str(x) for x in self.locations]))
+        return "%s,%s,%s,%s" % (self.pmid, self.title, str(self.date), ",".join([str(x) for x in self.locations]))
 
     @staticmethod
     def remove_nonascii(s):
@@ -199,19 +205,36 @@ def get_records(ids):
     records = Entrez.parse(handle=handle)
     return records
 
+
+def used_pmids():
+    pmids = []
+    with open(output_file_name, 'r') as f:
+        for line in f:
+            pmids.append(line.split(",")[0])
+    return pmids
+
 lookups = 0
 found_lookups = 0
 start = time.time()
 topic = sys.argv[1]
 retmax = sys.argv[2]
-google_places = GooglePlaces_MultipleKeys([key1, key2, key3, key4])
-with open(output_file_name, "w") as f:
-    g = get_records(get_links_term(topic, retmax=retmax))
+google_places = GooglePlaces_MultipleKeys([key1, key2, key3, key4, key5, key6])
+pmids = used_pmids()
+with open(output_file_name, "w+") as f:
+    g = list(get_records(get_links_term(topic, retmax=retmax)))
     print "Time to get from pubmed: %s" % (str(time.time() - start))
     for i, a in enumerate(g):
-        f.write(str(Article(a)) + os.linesep)
-        if i % 50 == 0 and i > 0:
-            rememberer.pickle()
+        pmid = None
+        date = None
+        try:
+            pmid = str(a["MedlineCitation"]["PMID"])
+            date = a['MedlineCitation']['Article']['ArticleDate'][0]
+        except (KeyError, IndexError):
+            continue
+        if pmid not in pmids:
+            f.write(str(Article(a)) + os.linesep)
+            if i % 50 == 0 and i > 0:
+                rememberer.pickle()
 print "Records: %s, Time: %s" % (retmax, str(time.time() - start))
 print "Lookups: %s, Found Lookups: %s" % (str(lookups), str(found_lookups))
 rememberer.pickle()
