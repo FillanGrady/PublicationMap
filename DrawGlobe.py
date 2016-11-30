@@ -47,7 +47,7 @@ def draw_globe(satellite_lat, satellite_long, lats, longs, date, writer):
     # compute native map projection coordinates of lat/lon grid.
     x, y = map(lons, lats)
     # contour data over the map.
-    cs = map.scatter(x,y, zorder=4)
+    cs = map.scatter(x,y, zorder=4, color='r')
     plt.title(str(date))
     writer.grab_frame()
     plt.clf()
@@ -69,15 +69,15 @@ if __name__ == "__main__":
     dates = np.array(dates)
     satellite_long = 0
     FFMpegWriter = manimation.writers['ffmpeg']
-    metadata = dict(title='Glioblastoma Multiforme', artist='MSTP Group 3',
+    metadata = dict(title='CFTR Mutation', artist='MSTP Group 3',
                     comment='')
     writer = FFMpegWriter(fps=25, metadata=metadata, bitrate=4e3)
     fig = plt.figure()
 
     with writer.saving(fig, "SpinningGlobe.mp4", 100):
-        for year in range(2015, 2018, 1):
+        for year in range(1990, 2018, 1):
             for month in range(1, 12, 1):
-                for day in range(1, 28, 1):
+                for day in range(1, 28, 35):
                     current_date = datetime.datetime(year=year, month=month, day=day)
                     after_longs = longs[dates < current_date]
                     after_lats = lats[dates < current_date]

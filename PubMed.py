@@ -15,15 +15,19 @@ key3 = 'AIzaSyDQzC6_3HLdCrv55J9CDZYR0t7OeFhTqK4'
 key4 = 'AIzaSyBoiY3tbFEkqYA2Rbr8p4zteBIC_IyYKdk'
 key5 = 'AIzaSyBv56ywWsWQDpeUP-hMvMW_2FgG9UY_XAg'
 key6 = 'AIzaSyBaiImRXaoYPIzguJxILsXOvhwz5aia-x0'
-
-
+key7 = 'AIzaSyDlObVh7CMcR4HcoBa6CHP_go1UhxzvfgM'
+key8 = 'IzaSyBxlOcspUM-wB3w1cIFnnXgClQVT1QaX78'
+key9 = 'AIzaSyAeYJqKlBribIuAtdZpzL1U6u0nuaSBYfs'
 def month_to_int(month):
-    import calendar
     try:
-        return [k for k, v in enumerate(calendar.month_abbr) if v == month][0]
-    except:
-        raise ValueError("Month %s not found" % month)
-
+        return int(str(month))
+    except ValueError:
+        import calendar
+        try:
+            return [k for k, v in enumerate(calendar.month_abbr) if v == month][0]
+        except:
+            print type(month)
+            raise ValueError("Month %s not found" % month)
 
 class GooglePlaces_MultipleKeys:
     def __init__(self, key_list):
@@ -208,7 +212,7 @@ def get_records(ids):
 
 def used_pmids():
     pmids = []
-    with open(output_file_name, 'r') as f:
+    with open(output_file_name, 'r+') as f:
         for line in f:
             pmids.append(line.split(",")[0])
     return pmids
@@ -218,10 +222,11 @@ found_lookups = 0
 start = time.time()
 topic = sys.argv[1]
 retmax = sys.argv[2]
-google_places = GooglePlaces_MultipleKeys([key1, key2, key3, key4, key5, key6])
+google_places = GooglePlaces_MultipleKeys([key1, key2, key3, key4, key5, key6, key7, key8, key9])
 pmids = used_pmids()
 with open(output_file_name, "w+") as f:
-    g = list(get_records(get_links_term(topic, retmax=retmax)))
+    ids = get_links_term(topic, retmax=retmax)
+    g = list(get_records(ids))
     print "Time to get from pubmed: %s" % (str(time.time() - start))
     for i, a in enumerate(g):
         pmid = None
